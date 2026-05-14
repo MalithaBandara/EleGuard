@@ -38,24 +38,38 @@ Local Dashboard Warning
 ```
 
 ## Installation and Usage
-1. Clone the repository:
+### 1. Clone the repository:
 ```Bash
 git clone [https://github.com/MalithaBandara/EleGuard.git](https://github.com/MalithaBandara/EleGuard.git)
 cd EleGuard
 ```
 
-2. Install dependencies:
+### 2. Install dependencies:
 ```Bash
 pip install opencv-python streamlit librosa numpy moviepy requests
 ```
+### 3. Download llama.cpp (b9090 or later)
+To run the local inference server, you need the llama.cpp binaries. It is recommended to use **build b9090** or newer for full Gemma 4 multimodal support.
+1. Go to the [llama.cpp Releases page](https://github.com/ggml-org/llama.cpp/releases).
+2. Look for **Release b9090** (or the latest version).
+3. Download the specific zip for Windows CPU: `llama-b9090-bin-win-cpu-x64.zip`.
+4. Extract the contents to a folder named `llama-bin` inside your project directory.
 
-3. Start the Local Inference Server:
+### 4. Download Model Weights (GGUF)
+Download the following required files from the [EleGuard Hugging Face Repository](https://huggingface.co/MalithaBandara/EleGuard):
+
+* **`EleGuard-gemma-4-E2B-it.Q4_K_M.gguf`** (Main Model)
+* **`EleGuard-gemma-4-E2B-it.F16-mmproj.gguf`** (Vision Projector)
+
+Place these files in your project root or a known directory (e.g., **`C:\EleGuard`**).
+
+### 5. Start the Local Inference Server:
 Run the llama.cpp server on port 8080 with your local model paths:
 ```bash
 C:\EleGuard\llama-b9090-bin-win-cpu-x64\llama-server.exe -m C:\EleGuard\gemma-4-e2b-it.Q4_K_M.gguf --mmproj C:\EleGuard\gemma-4-e2b-it.F16-mmproj.gguf -c 512 -ngl 0 --host 127.0.0.1 --port 8080
 ```
 
-4. Launch the Dashboard:
+### 6. Launch the Dashboard:
 ```Bash
 python -m streamlit run app.py
 ```
