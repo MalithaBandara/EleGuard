@@ -1,4 +1,4 @@
-# EleGuard
+# EleGuard 🐘
 
 EleGuard is an offline AI-powered elephant early warning prototype built with **Gemma 4**, **OpenCV**, and **llama.cpp**.
 
