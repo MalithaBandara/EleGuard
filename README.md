@@ -1,6 +1,6 @@
 # 🐘 EleGuard: Multimodal Elephant Detection
 
-EleGuard is an intelligent wildlife surveillance system designed for the 24/7 monitoring and detection of elephant activity in natural habitats. This project is a submission for the [Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon/overview) and focuses on local, offline deployment to mitigate human-elephant conflict in rural communities.
+EleGuard is an intelligent wildlife surveillance system designed for the 24/7 monitoring and detection of elephant activity in natural habitats. This project is a submission for the [Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon/overview) and focuses on local, offline deployment to mitigate human-elephant conflict in rural communities across Sri Lanka.
 
 EleGuard is a model trained on a dataset based on Gemma 4 E2B.
 
