@@ -64,7 +64,7 @@ Download the following required files from the [EleGuard Hugging Face Repository
 Place these files in your project root or a known directory (e.g., **`C:\EleGuard`**).
 
 ### 5. Start the Local Inference Server
-Run the llama.cpp server on port 8080. 
+Run the llama.cpp server on port 8080. \
 **Note:** You must update the three paths in the command below to match the actual locations on your system (the server executable, the model file, and the vision projector).
 
 ```bash
