@@ -37,8 +37,7 @@ SAFE / ALERT Output
 Local Dashboard Warning
 ```
 
-##Installation and Usage
-
+## Installation and Usage
 1. Clone the repository:
 ```Bash
 git clone [https://github.com/MalithaBandara/EleGuard.git](https://github.com/MalithaBandara/EleGuard.git)
