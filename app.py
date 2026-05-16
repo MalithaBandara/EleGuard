@@ -151,6 +151,18 @@ html, body, [data-testid="stApp"] {
 /* ── Divider ── */
 hr { border-color: #1e2d50 !important; }
 
+/* ── Video Player Clean Look ── */
+video {
+    pointer-events: none;
+    border-radius: 12px;
+}
+video::-webkit-media-controls {
+    display: none !important;
+}
+video::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+
 @keyframes blink {
     0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
 }
@@ -179,11 +191,12 @@ N_CAMS = len(VIDEO_PATHS)
 # ── Shared detection tuning ──────────────────────────────────────────────────
 INFERENCE_INTERVAL   = 5.0    # minimum seconds between queuing a frame per camera
 MIN_OBJECT_AREA_FRACTION = 0.010
-PERSISTENCE_REQUIRED = 8
+PERSISTENCE_REQUIRED = 5
 MAX_FG_RATIO         = 0.35
 MAX_SCATTER_CONTOURS = 5
 MORPH_KERNEL = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 AUDIO_THRESHOLD      = 0.15
+ALERT_COOLDOWN       = 30.0
 
 AUDIO_PROMPT = (
     """
@@ -192,8 +205,6 @@ AUDIO_PROMPT = (
     This image is a mel-spectrogram of audio.
 
     Look for strong low-frequency bands, repeated rumble-like patterns, or sudden energetic bursts that may suggest elephant vocalizations.
-
-    Do not describe visual objects. Interpret the spectrogram as audio.
 
     Provide very short reasoning inside <think> tags. You must start your response with <think>.
 
@@ -258,12 +269,35 @@ def inference_worker(job_queue: queue.Queue, results: dict, stop_event: threadin
     """
     while not stop_event.is_set():
         try:
-            cam_idx, image, mode = job_queue.get(timeout=1.0)
+            cam_idx, data, mode = job_queue.get(timeout=1.0)
         except queue.Empty:
             continue
 
+        # [NEW] Discard redundant frames if camera is already in ALERT cooldown
+        res = results.get(cam_idx, {})
+        if res.get("status") == "ALERT":
+            if time.time() - res.get("alert_time", 0) < ALERT_COOLDOWN:
+                results[cam_idx]["pending"] = False
+                job_queue.task_done()
+                continue
+
         try:
-            out   = run_inference(image, mode).strip()
+            image_to_process = data
+            
+            # If data is raw audio, generate spectrogram in this background thread
+            if mode == "audio":
+                # S = librosa.feature.melspectrogram(y=data, sr=sr_audio, n_mels=128, fmax=8000)
+                S = librosa.feature.melspectrogram(y=data, sr=22050, n_mels=128, fmax=8000)
+                S_dB = librosa.power_to_db(S, ref=np.max)
+                db_range = S_dB.max() - S_dB.min()
+                if db_range > 0:
+                    img_array = ((S_dB - S_dB.min()) / db_range * 255).astype(np.uint8)
+                    img_array = np.flipud(img_array)
+                    image_to_process = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
+                else:
+                    image_to_process = np.zeros((128, 128, 3), dtype=np.uint8)
+
+            out   = run_inference(image_to_process, mode).strip()
             lines = [l.strip() for l in out.splitlines() if l.strip()]
             status = "SAFE"
             for line in reversed(lines):
@@ -279,7 +313,19 @@ def inference_worker(job_queue: queue.Queue, results: dict, stop_event: threadin
             status    = "SAFE"
             reasoning = f"Inference Error:\n\n{e}"
 
-        results[cam_idx] = {"status": status, "reasoning": reasoning, "pending": False}
+        old_res = results.get(cam_idx, {})
+        alert_time = old_res.get("alert_time", 0.0)
+        if status == "ALERT":
+            alert_time = time.time()
+        elif status == "SAFE":
+            alert_time = 0.0
+
+        results[cam_idx] = {
+            "status": status, 
+            "reasoning": reasoning, 
+            "pending": False,
+            "alert_time": alert_time
+        }
         job_queue.task_done()
 
 
@@ -385,6 +431,8 @@ if st.button(
     use_container_width=True
 ):
     st.session_state.run = not st.session_state.run
+    if st.session_state.run:
+        st.session_state.monitoring_start_time = time.time()
     st.rerun()
 
 if not st.session_state.run:
@@ -396,7 +444,7 @@ from streamlit.runtime.scriptrunner import add_script_run_ctx
 # ── Start background inference worker ────────────────────────────────────────
 if "infer_queue" not in st.session_state:
     st.session_state.infer_queue  = queue.Queue(maxsize=N_CAMS * 2)  # bounded: drop old jobs
-    st.session_state.infer_results = {i: {"status": "SAFE", "reasoning": "", "pending": False}
+    st.session_state.infer_results = {i: {"status": "SAFE", "reasoning": "", "pending": False, "alert_time": 0.0}
                                        for i in range(N_CAMS)}
     st.session_state.stop_event   = threading.Event()
 
@@ -433,7 +481,8 @@ for i in range(N_CAMS):
         c1, c2, c3 = st.columns([3, 2, 2], gap="medium")
         
         with c1:
-            feed_ph = st.empty()
+            st.video(VIDEO_PATHS[i], loop=True, autoplay=True, muted=True)
+            feed_ph = st.empty() # Still exists if needed for overlays, but unused now
             
         with c2:
             debug_ph = st.empty()
@@ -478,15 +527,17 @@ for i, path in enumerate(VIDEO_PATHS):
         audios.append(np.zeros(0))
         st.warning(f"Could not load audio for {path}: {e}")
 
-    fps      = cap.get(cv2.CAP_PROP_FPS) or 30
-    fw       = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    fh       = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    min_area = int(fw * fh * MIN_OBJECT_AREA_FRACTION)
+    fps          = cap.get(cv2.CAP_PROP_FPS) or 30
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fw           = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    fh           = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    min_area     = int(fw * fh * MIN_OBJECT_AREA_FRACTION)
 
     caps.append(cap)
     fgbgs.append(cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=80, detectShadows=True))
     states.append({
         "fps":             fps,
+        "total_frames":    total_frames,
         "skip_interval":   max(1, int(fps)),
         "min_area":        min_area,
         "f_count":         0,
@@ -517,24 +568,45 @@ while st.session_state.run:
             cap   = caps[i]
             fgbg  = fgbgs[i]
             
-            ret, frame = cap.read()
-            if not ret:
-                # Video ended, loop back to the beginning
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            # ── Synchronization Logic: Determine current playback position ──────────
+            elapsed = time.time() - st.session_state.monitoring_start_time
+            # Total duration to calculate modulo
+            duration = state["total_frames"] / state["fps"] if state["total_frames"] > 0 else 1
+            t = elapsed % duration
+            target_f = int(t * state["fps"])
+            state["f_count"] = target_f
+
+            # Only read and process a frame at specific intervals to save CPU/Network
+            # (Motion detection and Debug viz run at 1 FPS)
+            last_target_f = state.get("last_target_f", -1)
+            state["last_target_f"] = target_f
+            
+            should_analyze = False
+            if last_target_f == -1:
+                should_analyze = True
+            else:
+                prev_interval = last_target_f // state["skip_interval"]
+                curr_interval = target_f // state["skip_interval"]
+                if curr_interval > prev_interval or target_f < last_target_f:
+                    should_analyze = True
+
+            if should_analyze:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, target_f)
                 ret, frame = cap.read()
                 
-            if not ret:
-                state["alive"] = False
-                pls["feed"].error(f"📼 Error reading {VIDEO_PATHS[i]}")
-            else:
-                any_alive = True
-                state["f_count"] += 1
+                if not ret:
+                    # If read fails, try resetting
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    ret, frame = cap.read()
+                
+                if not ret:
+                    state["alive"] = False
+                    pls["feed"].error(f"📼 Error reading {VIDEO_PATHS[i]}")
+                else:
+                    any_alive = True
+                    # Sync f_count with actual video position
+                    state["f_count"] = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
 
-                # ── Live feed (Updates every frame for smooth playback) ───────────
-                rgb_small = cv2.cvtColor(cv2.resize(frame, (480, 270)), cv2.COLOR_BGR2RGB)
-                pls["feed"].image(rgb_small, use_container_width=True)
-
-                if state["f_count"] % state["skip_interval"] == 0:
                     # ── Motion detection (non-blocking, 1 fps) ────────────────────────
                     debug_viz = process_single_frame(frame, fgbg, state, state["min_area"])
 
@@ -559,20 +631,21 @@ while st.session_state.run:
                             unsafe_allow_html=True
                         )
 
-                    # ── Audio processing (1 fps) ──────────────────────────────────────
+                    # ── Audio processing (Synced with OpenCV frame) ──────────────────────
                     now = time.time()
                     t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
                     audio_y = audios[i]
                     audio_triggered = False
                     
                     if len(audio_y) > 0:
+                        # Use wall-clock time 't' for audio lookup
                         start_idx = int(max(0, t - 0.5) * sr_audio)
                         end_idx = int(min(len(audio_y), (t + 0.5) * sr_audio))
                         chunk = audio_y[start_idx:end_idx]
                         
                         if len(chunk) > 0:
                             rms = np.sqrt(np.mean(chunk**2))
-                            # Render volume meter (clamp max at 2x threshold for visual scale)
+                            # Render volume meter
                             vol_pct = int(min(100, (rms / (AUDIO_THRESHOLD * 2)) * 100))
                             color = "#ef4444" if rms > AUDIO_THRESHOLD else "#22c55e" if rms > AUDIO_THRESHOLD/2 else "#3b82f6"
                             pls["vol"].markdown(f'''
@@ -583,55 +656,39 @@ while st.session_state.run:
                             ''', unsafe_allow_html=True)
                             
                             # Audio Trigger
-                            if rms > AUDIO_THRESHOLD and not result["pending"] and (now - state["last_infer_time"] > INFERENCE_INTERVAL):
+                            cooldown = ALERT_COOLDOWN if result["status"] == "ALERT" else INFERENCE_INTERVAL
+                            if rms > AUDIO_THRESHOLD and not result["pending"] and (now - state["last_infer_time"] > cooldown):
                                 audio_triggered = True
-                                
-                                # Grab 2s chunk for spectrogram
                                 s_idx = int(max(0, t - 1.0) * sr_audio)
                                 e_idx = int(min(len(audio_y), (t + 1.0) * sr_audio))
                                 spec_chunk = audio_y[s_idx:e_idx]
-                                
-                                # Generate mel-spectrogram with fmax=8000
-                                S = librosa.feature.melspectrogram(y=spec_chunk, sr=sr_audio, n_mels=128, fmax=8000)
-                                S_dB = librosa.power_to_db(S, ref=np.max)
-                                
-                                db_range = S_dB.max() - S_dB.min()
-                                if db_range > 0:
-                                    # Normalize to 0-255
-                                    img_array = ((S_dB - S_dB.min()) / db_range * 255).astype(np.uint8)
-                                    # Flip vertically (low frequencies at bottom)
-                                    img_array = np.flipud(img_array)
-                                    # Convert to 3-channel B/W for Gemma pipeline
-                                    spec_img = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
-                                
-                                    try:
-                                        infer_queue.put_nowait((i, spec_img, "audio"))
-                                        infer_results[i]["pending"] = True
-                                        any_pending = True
-                                        state["last_infer_time"] = now
-                                        
-                                        pls["motion"].markdown('<div class="badge badge-motion">🔊 &nbsp;LOUD NOISE DETECTED</div>', unsafe_allow_html=True)
-                                    except queue.Full:
-                                        pass
+                                try:
+                                    infer_queue.put_nowait((i, spec_chunk, "audio"))
+                                    infer_results[i]["pending"] = True
+                                    any_pending = True
+                                    state["last_infer_time"] = now
+                                    pls["motion"].markdown('<div class="badge badge-motion">🔊 &nbsp;LOUD NOISE DETECTED</div>', unsafe_allow_html=True)
+                                except queue.Full:
+                                    pass
 
                     # ── Enqueue frame for inference (non-blocking) ────────────────────
-                    
-                    # Continually enqueue frames every INFERENCE_INTERVAL as long as motion is detected
-                    if not audio_triggered and state.get("motion_detected", False) and not result["pending"] and (now - state["last_infer_time"] > INFERENCE_INTERVAL):
+                    cooldown = ALERT_COOLDOWN if result["status"] == "ALERT" else INFERENCE_INTERVAL
+                    if not audio_triggered and state.get("motion_detected", False) and not result["pending"] and (now - state["last_infer_time"] > cooldown):
                         try:
-                            # Crop the frame to the motion bounding box
                             crop_frame = frame.copy()
                             if "last_bbox" in state:
                                 x1, y1, x2, y2 = state["last_bbox"]
                                 if x2 > x1 and y2 > y1:
                                     crop_frame = frame[y1:y2, x1:x2].copy()
-                            
                             infer_queue.put_nowait((i, crop_frame, "video"))
                             infer_results[i]["pending"] = True
                             any_pending = True
                             state["last_infer_time"] = now
                         except queue.Full:
-                            pass  # queue is busy; skip this frame
+                            pass
+            else:
+                # Still count as alive if we are just skipping frames for performance
+                any_alive = True
 
         # ── Render latest inference result from worker ────────────────────
         # (This runs even if the video has ended, so we catch late AI responses)
@@ -647,16 +704,19 @@ while st.session_state.run:
             state["last_reasoning"] = reasoning
             state["last_pending"] = pending
 
-            if pending:
+            if status == "ALERT":
+                pls["status"].markdown(
+                    '<div class="badge badge-alert">⚠️ &nbsp;ELEPHANT ALERT</div>',
+                    unsafe_allow_html=True
+                )
+            elif pending:
                 pls["status"].markdown(
                     '<div class="badge badge-pending">⏳ &nbsp;ANALYZING…</div>',
                     unsafe_allow_html=True
                 )
             else:
-                sc = "badge-alert" if status == "ALERT" else "badge-safe"
-                sl = "⚠️ &nbsp;ELEPHANT ALERT" if status == "ALERT" else "✅ &nbsp;AREA SAFE"
                 pls["status"].markdown(
-                    f'<div class="badge {sc}">{sl}</div>',
+                    '<div class="badge badge-safe">✅ &nbsp;AREA SAFE</div>',
                     unsafe_allow_html=True
                 )
 
