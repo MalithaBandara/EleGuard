@@ -29,6 +29,7 @@ The dashboard provides a real-time interface built with Streamlit.
 </p>
 
 ## How It Works
+To ensure reliable, 24/7 monitoring without overwhelming edge hardware, EleGuard is structured as an event-driven inference cascade. By using lightweight heuristics to filter raw environmental data, the system ensures the compute-intensive Gemma 4 reasoning model is only triggered during high-probability events. The complete pipeline, from sensor capture to local alert generation, is illustrated below.
 <p>
   <img src="assets/chart.png" width="40%">
 </p>
