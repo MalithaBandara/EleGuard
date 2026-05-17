@@ -315,16 +315,19 @@ def inference_worker(job_queue: queue.Queue, results: dict, stop_event: threadin
 
         old_res = results.get(cam_idx, {})
         alert_time = old_res.get("alert_time", 0.0)
+        safe_time = old_res.get("safe_time", 0.0)
         if status == "ALERT":
             alert_time = time.time()
         elif status == "SAFE":
             alert_time = 0.0
+            safe_time = time.time()
 
         results[cam_idx] = {
             "status": status, 
             "reasoning": reasoning, 
             "pending": False,
-            "alert_time": alert_time
+            "alert_time": alert_time,
+            "safe_time": safe_time
         }
         job_queue.task_done()
 
@@ -444,7 +447,7 @@ from streamlit.runtime.scriptrunner import add_script_run_ctx
 # ── Start background inference worker ────────────────────────────────────────
 if "infer_queue" not in st.session_state:
     st.session_state.infer_queue  = queue.Queue(maxsize=N_CAMS * 2)  # bounded: drop old jobs
-    st.session_state.infer_results = {i: {"status": "SAFE", "reasoning": "", "pending": False, "alert_time": 0.0}
+    st.session_state.infer_results = {i: {"status": "SAFE", "reasoning": "", "pending": False, "alert_time": 0.0, "safe_time": 0.0}
                                        for i in range(N_CAMS)}
     st.session_state.stop_event   = threading.Event()
 
@@ -694,22 +697,26 @@ while st.session_state.run:
         # (This runs even if the video has ended, so we catch late AI responses)
         status    = result["status"]
         reasoning = result["reasoning"]
-        pending   = result["pending"]
+        
+        display_pending = result["pending"]
+        if display_pending and status == "SAFE":
+            if time.time() - result.get("safe_time", 0.0) < 5.0:
+                display_pending = False
 
         if (state.get("last_status") != status or 
             state.get("last_reasoning") != reasoning or 
-            state.get("last_pending") != pending):
+            state.get("last_display_pending") != display_pending):
             
             state["last_status"] = status
             state["last_reasoning"] = reasoning
-            state["last_pending"] = pending
+            state["last_display_pending"] = display_pending
 
             if status == "ALERT":
                 pls["status"].markdown(
                     '<div class="badge badge-alert">⚠️ &nbsp;ELEPHANT ALERT</div>',
                     unsafe_allow_html=True
                 )
-            elif pending:
+            elif display_pending:
                 pls["status"].markdown(
                     '<div class="badge badge-pending">⏳ &nbsp;ANALYZING…</div>',
                     unsafe_allow_html=True
