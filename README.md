@@ -74,6 +74,34 @@ C:\EleGuard\llama-b9090-bin-win-cpu-x64\llama-server.exe -m C:\EleGuard\gemma-4-
 python -m streamlit run app.py
 ```
 
+## Configuration
+
+EleGuard allows important runtime parameters to be customized through the `config.json` file without modifying the source code.
+
+### Current Configurable Parameters
+
+| Parameter | Description |
+|---|---|
+| `inference_resolution` | Resolution used for local model inference. Lower resolutions improve speed and reduce CPU usage. |
+| `jpeg_quality` | JPEG compression quality applied before sending images for inference. Lower values reduce image size and latency. |
+| `inference_interval` | Time interval (in seconds) between inference runs. |
+| `min_object_area_fraction` | Minimum detected motion area required to trigger analysis. Helps filter small movements and noise. |
+| `persistence_required` | Number of consecutive detections required before triggering inference. Reduces false positives. |
+| `max_fg_ratio` | Maximum foreground motion ratio allowed before treating the frame as camera shake or excessive movement. |
+| `max_scatter_contours` | Maximum number of scattered motion contours allowed before ignoring the frame. |
+| `audio_threshold` | Minimum audio activity threshold required for audio-triggered analysis. |
+| `alert_cooldown` | Cooldown period (in seconds) between alerts to prevent repeated triggering. |
+| `model_url` | URL endpoint used for local Gemma inference through llama.cpp. |
+| `max_tokens` | Maximum number of generated response tokens from the model. |
+| `temperature` | Sampling temperature controlling response randomness and determinism. |
+
+This configuration system allows EleGuard to be adapted for different:
+- camera setups
+- environmental conditions
+- hardware capabilities
+- deployment scenarios
+- latency requirements
+
 ## Impact and future work
 EleGuard serves as a practical blueprint for localized conservation technology. It demonstrates that multimodal AI models such as Gemma 4 can be compressed, optimized, and deployed locally to solve real-world safety problems.
 
