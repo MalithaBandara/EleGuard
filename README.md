@@ -30,7 +30,7 @@ The dashboard provides a real-time interface built with Streamlit.
 
 ## How It Works
 <p align="center">
-  <img src="assets/chart.png" width="80%">
+  <img src="assets/chart.png" width="40%">
 </p>
 
 ## Installation and Usage
@@ -81,5 +81,5 @@ python -m streamlit run app.py
 * EleGuard is a model trained on a dataset based on Gemma 4 E2B.
 * This project is independently developed and is not an official Google release.
 <p align="center">
-  <img src="assets/final.png" width="80%">
+  <img src="assets/final.png" width="70%">
 </p>
