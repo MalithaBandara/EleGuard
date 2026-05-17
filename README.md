@@ -73,14 +73,6 @@ C:\EleGuard\llama-b9090-bin-win-cpu-x64\llama-server.exe -m C:\EleGuard\gemma-4-
 ```Bash
 python -m streamlit run app.py
 ```
-## Resources
-* **Model Weights (GGUF)**: Fine-tuned weights and multimodal projectors are hosted on [Hugging Face](https://huggingface.co/MalithaBandara/EleGuard).
-* **Dataset**: The model was trained on the [EleGuard Dataset](https://www.kaggle.com/datasets/malithabandara/eleguard-dataset), which contains 2,600 curated samples of infrared/daytime imagery and bioacoustic spectrograms.
-
-## Legal and Trademarks
-* Gemma is a trademark of Google LLC.
-* EleGuard is a model trained on a dataset based on Gemma 4 E2B.
-* This project is independently developed and is not an official Google release.
 
 ## Impact and future work
 EleGuard serves as a practical blueprint for localized conservation technology. It demonstrates that multimodal AI models such as Gemma 4 can be compressed, optimized, and deployed locally to solve real-world safety problems.
@@ -90,3 +82,12 @@ The system is fully open source, allowing others to inspect, improve, and adapt 
 <p align="center">
   <img src="assets/final.png" width="70%">
 </p>
+
+## Resources
+* **Model Weights (GGUF)**: Fine-tuned weights and multimodal projectors are hosted on [Hugging Face](https://huggingface.co/MalithaBandara/EleGuard).
+* **Dataset**: The model was trained on the [EleGuard Dataset](https://www.kaggle.com/datasets/malithabandara/eleguard-dataset), which contains 2,600 curated samples of infrared/daytime imagery and bioacoustic spectrograms.
+
+## Legal and Trademarks
+* Gemma is a trademark of Google LLC.
+* EleGuard is a model trained on a dataset based on Gemma 4 E2B.
+* This project is independently developed and is not an official Google release.
