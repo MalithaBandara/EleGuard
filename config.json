@@ -1,0 +1,14 @@
+{
+  "inference_resolution": [224, 224],
+  "jpeg_quality": 60,
+  "inference_interval": 5.0,
+  "min_object_area_fraction": 0.010,
+  "persistence_required": 5,
+  "max_fg_ratio": 0.35,
+  "max_scatter_contours": 5,
+  "audio_threshold": 0.15,
+  "alert_cooldown": 30.0,
+  "model_url": "http://127.0.0.1:8080/v1/chat/completions",
+  "max_tokens": 64,
+  "temperature": 0.1
+}
