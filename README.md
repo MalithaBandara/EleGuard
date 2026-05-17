@@ -29,7 +29,7 @@ The dashboard provides a real-time interface built with Streamlit.
 </p>
 
 ## How It Works
-<p align="center">
+<p>
   <img src="assets/chart.png" width="40%">
 </p>
 
