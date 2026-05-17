@@ -76,7 +76,7 @@ python -m streamlit run app.py
 
 ## Configuration
 
-EleGuard allows important runtime parameters to be customized through the `config.json` file without modifying the source code.
+EleGuard allows important runtime parameters to be customized through the `config.json` file.
 
 ### Current Configurable Parameters
 
