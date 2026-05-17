@@ -3,6 +3,9 @@
 EleGuard is an intelligent wildlife surveillance system designed for the 24/7 monitoring and detection of elephant activity in natural habitats. This project is a submission for the [Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon/overview) and focuses on local, offline deployment to mitigate human-elephant conflict in rural communities across Sri Lanka.
 
 EleGuard is a model trained on a dataset based on Gemma 4 E2B.
+<p align="center">
+  <img src="assets/thumbnail.png" width="80%">
+</p>
 
 ## Features
 * Multimodal Detection: Integrated visual (Infrared/Daytime) and acoustic analysis for robust monitoring.
@@ -21,21 +24,14 @@ The dashboard provides a real-time interface built with Streamlit.
 * Multi-Camera Support: Simultaneous monitoring of multiple video feeds.
 * Motion Filtering: OpenCV-based tracking and camera shake suppression.
 * Local Inference: Connects to a local llama.cpp server for offline processing.
+<p align="center">
+  <img src="assets/dashboard.png" width="80%">
+</p>
 
 ## How It Works
-```text
-Camera / Audio Input
-        ↓
-OpenCV Motion + Audio Filtering
-        ↓
-Event Trigger
-        ↓
-EleGuard (Gemma 4) Multimodal Reasoning
-        ↓
-SAFE / ALERT Output
-        ↓
-Local Dashboard Warning
-```
+<p align="center">
+  <img src="assets/chart.png" width="80%">
+</p>
 
 ## Installation and Usage
 ### 1. Clone the repository:
@@ -84,3 +80,6 @@ python -m streamlit run app.py
 * Gemma is a trademark of Google LLC.
 * EleGuard is a model trained on a dataset based on Gemma 4 E2B.
 * This project is independently developed and is not an official Google release.
+<p align="center">
+  <img src="assets/final.png" width="80%">
+</p>
