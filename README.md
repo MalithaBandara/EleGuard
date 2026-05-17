@@ -78,8 +78,6 @@ python -m streamlit run app.py
 
 EleGuard allows important runtime parameters to be customized through the `config.json` file.
 
-### Current Configurable Parameters
-
 | Parameter | Description |
 |---|---|
 | `inference_resolution` | Resolution used for local model inference. Lower resolutions improve speed and reduce CPU usage. |
